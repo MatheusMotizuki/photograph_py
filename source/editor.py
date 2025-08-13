@@ -4,11 +4,14 @@ import dearpygui.dearpygui as dpg
 from source.nodes.io.input import InputNode
 from source.nodes.io.output import OutputNode
 
-from source.nodes.submodules.brightness import BrightnessNode
-from source.nodes.submodules.rotate import RotateNode
-from source.nodes.submodules.monochrome import MonochromeNode
-from source.nodes.submodules.rgb import RGBNode
-
+from source.nodes.submodules import (
+    BrightnessNode,
+    RGBNode,
+    MonochromeNode,
+    BlurNode,
+    ResizeNode,
+    RotateNode,
+)
 from source.nodes.core import Link, update
 from source.utils.theme import btn_theme, menu_theme
 from source.utils.popup import Toast
@@ -28,11 +31,13 @@ class PhotoGraphEditor:
         self.parent = parent
 
         self.submodules = [
-            InputNode(), 
-            BrightnessNode(), 
-            RotateNode(), 
-            MonochromeNode(), 
-            RGBNode(), 
+            InputNode(),
+            BrightnessNode(),
+            BlurNode(),
+            RGBNode(),
+            MonochromeNode(),
+            ResizeNode(),
+            RotateNode(),
             OutputNode(blank_image)
         ]
 
