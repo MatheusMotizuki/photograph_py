@@ -3,17 +3,19 @@ from PIL import Image
 from typing import Optional
 
 from source.nodes.core import NodeCore, available_pos
+from source.utils.theme import theme
 
 class RotateNode(NodeCore):
     name = "Rotate"
     tooltip = "Rotate image"
+    tag = "rotate"
 
     def __init__(self):
         super().__init__()
 
-    def initialize(self, history=True):
+    def initialize(self, parent=None):
         with dpg.node(
-            parent="MainNodeEditor",
+            parent=parent,
             tag="rotate_" + str(self.counter),
             label="Rotate",
             pos=available_pos(),
@@ -32,10 +34,11 @@ class RotateNode(NodeCore):
                     clamped=True,
                     callback=self.update_output,
                 )
+                dpg.bind_item_theme("rotate_"+str(self.counter), theme.apply_theme(node_outline=(255, 150, 79, 255)))
 
         tag = "rotate_" + str(self.counter)
         self.settings[tag] = {"rotate_degrees_" + str(self.counter): 0}
-        self.end(tag, history)
+        self.end()
 
     def run(self, image: Image.Image, tag: str) -> Image.Image:
         tag_id = tag.split("_")[-1]

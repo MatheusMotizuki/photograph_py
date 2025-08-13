@@ -20,7 +20,7 @@ class NodeCore:
         self.protected = False
         self.is_plugin = False
 
-    def end(self, tag, history):
+    def end(self):
         self.counter += 1
 
 class Link(BaseModel):

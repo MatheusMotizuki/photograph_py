@@ -67,7 +67,7 @@ def main():
         with dpg.window(tag='photoGraphMain', menubar=True, no_title_bar=True, no_move=True, no_resize=True, no_close=True):
             setup_menus()
             
-            editor._initialize()
+            editor.initialize()
 
         dpg.setup_dearpygui()
         dpg.show_viewport()

@@ -7,13 +7,14 @@ from source.nodes.core import NodeCore, available_pos
 class RGBNode(NodeCore):
     name = "RGB"
     tooltip = "Adjust RGB channels (decrease each color)"
+    tag = "rgb"
 
     def __init__(self):
         super().__init__()
 
-    def initialize(self, history=True):
+    def initialize(self, parent=None):
         with dpg.node(
-            parent="MainNodeEditor",
+            parent=parent,
             tag="rgb_" + str(self.counter),
             label="RGB",
             pos=available_pos(),
@@ -59,7 +60,7 @@ class RGBNode(NodeCore):
             "rgb_g_" + str(self.counter): 0,
             "rgb_b_" + str(self.counter): 0,
         }
-        self.end(tag, history)
+        self.end()
 
     def run(self, image: Image.Image, tag: str) -> Image.Image:
         tag_id = tag.split("_")[-1]
