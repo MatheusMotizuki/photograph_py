@@ -9,8 +9,9 @@ from source.nodes.submodules import (
     RGBNode,
     MonochromeNode,
     BlurNode,
-    ResizeNode,
-    RotateNode,
+    PixelateNode,
+    DitherNode,
+    PosterizationNode,
 )
 from source.nodes.core import Link, update
 from source.utils.theme import btn_theme, menu_theme
@@ -26,7 +27,7 @@ class PhotoGraphEditor:
 
     def __init__(self, parent: str = "PhotoGraphMain"):
         """Initialize the PhotoGraph editor."""
-        blank_image = Image.new("RGBA", (1, 1), (0, 0, 0, 0))
+        blank_image = Image.new("RGBA", (1, 1), (0, 0, 0, 255))
 
         self.parent = parent
 
@@ -36,8 +37,9 @@ class PhotoGraphEditor:
             BlurNode(),
             RGBNode(),
             MonochromeNode(),
-            ResizeNode(),
-            RotateNode(),
+            PixelateNode(),
+            DitherNode(),
+            PosterizationNode(),
             OutputNode(blank_image)
         ]
 
@@ -103,12 +105,12 @@ class PhotoGraphEditor:
 
             if len(selected_nodes) != 0:
                 # Show node info menu for selected nodes
-                if not dpg.does_item_exist(self._node_info_ctx):
+                if not dpg.does_item_exist(self.node_info_ctx):
                     # Get data from all selected nodes
                     selected_data = [dpg.get_item_user_data(node) for node in selected_nodes]
                     self._node_info_menu(selected_data)
-                dpg.show_item(self._node_info_ctx)
-                dpg.set_item_pos(self._node_info_ctx, dpg.get_mouse_pos(local=False))
+                dpg.show_item(self.node_info_ctx)
+                dpg.set_item_pos(self.node_info_ctx, dpg.get_mouse_pos(local=False))
                 # Hide the main context menu if it's open
                 if dpg.does_item_exist(self.node_menu_ctx):
                     dpg.hide_item(self.node_menu_ctx)
@@ -186,12 +188,12 @@ class PhotoGraphEditor:
         
         colors = [
             (227, 23, 62, 255),  # Brightness
-            (255, 150, 79, 255),  # Rotate
-            (15, 178, 235, 255),  # Monochrome
-            (169, 249, 248, 255),  # Cyan
-            (255, 124, 255, 255),  # Magenta
-            (255, 253, 116, 255),  # Yellow
-            (169, 169, 169, 255),  # Orange
+            (255, 150, 79, 255),  # Blur
+            (15, 178, 235, 255),  # RGB
+            (169, 249, 248, 255),  # Monochrome
+            (255, 124, 255, 255),  # Pixelate
+            (255, 253, 116, 255),  # Dither
+            (169, 169, 169, 255),  # GIF
         ]
 
         border_size = 1.5
@@ -210,8 +212,8 @@ class PhotoGraphEditor:
             show=False,
             label="Node information",
         ):
-            dpg.add_text(f"Node is {node_data.name if node_data else 'Unknown'}", color=(248, 248, 248))
-            dpg.add_text(f"{node_data.description if node_data else 'No description available.'}", color=(200, 200, 200))
+            dpg.add_text(f"Node is {node_data.NAME if node_data else 'Unknown'}", color=(248, 248, 248))
+            dpg.add_text(f"{node_data.DESCRIPTION if node_data else 'No description available.'}", color=(200, 200, 200))
             if not node_data.protected:
                 dpg.add_spacer(height=5)
                 dpg.add_separator()

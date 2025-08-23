@@ -1,15 +1,27 @@
+"""Core node system for the photograph application."""
+
 from contextlib import suppress
+from typing import Optional, Any, Dict, List
+import logging
+
 import dearpygui.dearpygui as dpg
-from typing import Optional
-from PIL import Image
-from pydantic import BaseModel
 import numpy as np
+from PIL import Image
+from pydantic import BaseModel, Field
 
-from source.nodes.io import output
+# Constants
+MOUSE_OFFSET = 100
 
-def available_pos() -> Optional[list[int]]:
+logger = logging.getLogger(__name__)
+
+def get_available_position() -> Optional[list[int]]:
+    """Get available position for new nodes based on mouse position.
+    
+    Returns:
+        List of [x, y] coordinates offset from mouse position.
+    """
     x, y = dpg.get_mouse_pos(local=False)
-    return [max(0, x - 100), max(0, y - 100)]
+    return [max(0, x - MOUSE_OFFSET), max(0, y - MOUSE_OFFSET)]
 
 class NodeCore:
     """Base class for all nodes in the graph."""
@@ -89,24 +101,10 @@ class Update:
         input_node = dpg.get_item_user_data("Input")
         image = input_node.current_image
         output = dpg.get_item_user_data(self.path[-1])
-        if image is None:
-            # Show placeholder image
-            blank = Image.new("RGBA", (200, 200), (0, 0, 0, 0))
-            texture_data = np.frombuffer(blank.tobytes(), dtype=np.uint8) / 255.0
-            texture_tag = "output_placeholder"
-            width, height = blank.size
-
+        if image is None or image == "": # try to solve infinite display bug
             dpg.delete_item("Output_attribute", children_only=True)
-            with dpg.texture_registry():
-                dpg.add_static_texture(
-                    width,
-                    height,
-                    texture_data,
-                    tag=texture_tag
-                )
-            dpg.add_image(texture_tag, parent="Output_attribute")
             return
-        
+
         img_size = image.size
         for node in self.path[1:-1]:
             tag = dpg.get_item_alias(node)
@@ -137,7 +135,5 @@ class Update:
             dpg.add_text(
                 f"Image size: {output.pillow_image.width}x{output.pillow_image.height}", parent="Output_attribute"
             )
-
-
 
 update = Update()

@@ -1,7 +1,7 @@
 from dearpygui import dearpygui as dpg
 from PIL import Image, ImageEnhance
 
-from source.nodes.core import NodeCore, available_pos
+from source.nodes.core import NodeCore, get_available_position
 from source.utils.theme import theme
 
 
@@ -18,7 +18,7 @@ class BrightnessNode(NodeCore):
             parent=parent,
             tag="brightness_" + str(self.counter),
             label="Brightness",
-            pos=available_pos(),
+            pos=get_available_position(),
             user_data=self,
         ):
             with dpg.node_attribute(attribute_type=dpg.mvNode_Attr_Input):
@@ -26,7 +26,7 @@ class BrightnessNode(NodeCore):
             with dpg.node_attribute(attribute_type=dpg.mvNode_Attr_Output):
                 dpg.add_slider_int(
                     tag="brightness_percentage_" + str(self.counter),
-                    label="Brightness",  # Add this fixed label
+                    label="Brightness",
                     width=150,
                     max_value=100,
                     min_value=1,

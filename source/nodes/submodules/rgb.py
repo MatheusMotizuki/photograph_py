@@ -2,7 +2,9 @@ import dearpygui.dearpygui as dpg
 from PIL import Image
 import numpy as np
 
-from source.nodes.core import NodeCore, available_pos
+from source.nodes.core import NodeCore, get_available_position
+
+from source.utils.theme import theme
 
 class RGBNode(NodeCore):
     name = "RGB"
@@ -17,7 +19,7 @@ class RGBNode(NodeCore):
             parent=parent,
             tag="rgb_" + str(self.counter),
             label="RGB",
-            pos=available_pos(),
+            pos=get_available_position(),
             user_data=self,
         ):
             with dpg.node_attribute(attribute_type=dpg.mvNode_Attr_Input):
@@ -60,6 +62,7 @@ class RGBNode(NodeCore):
             "rgb_g_" + str(self.counter): 0,
             "rgb_b_" + str(self.counter): 0,
         }
+        dpg.bind_item_theme("rgb_"+str(self.counter), theme.apply_theme(node_outline=(15, 178, 235, 255)))
         self.end()
 
     def run(self, image: Image.Image, tag: str) -> Image.Image:

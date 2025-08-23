@@ -2,7 +2,9 @@ import dearpygui.dearpygui as dpg
 from PIL import Image, ImageFilter
 import numpy as np
 
-from source.nodes.core import NodeCore, available_pos
+from source.nodes.core import NodeCore, get_available_position
+
+from source.utils.theme import theme
 
 class BlurNode(NodeCore):
     name = "Blur"
@@ -22,7 +24,7 @@ class BlurNode(NodeCore):
             parent=parent,
             tag="blur_" + str(self.counter),
             label="Blur",
-            pos=available_pos(),
+            pos=get_available_position(),
             user_data=self,
         ):
             with dpg.node_attribute(attribute_type=dpg.mvNode_Attr_Input):
@@ -46,6 +48,7 @@ class BlurNode(NodeCore):
                     clamped=True,
                     callback=self.update_output,
                 )
+            dpg.bind_item_theme("blur_"+str(self.counter), theme.apply_theme(node_outline=(255, 150, 79, 255)))
 
         tag = "blur_" + str(self.counter)
         self.settings[tag] = {

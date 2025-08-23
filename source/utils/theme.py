@@ -36,6 +36,23 @@ class NodeButtonTheme:
                 
             return button_theme
 
+class SliderIntTheme:
+    def __init__(self):
+        super().__init__()
+
+    def apply_theme(self, slider_color=(80, 160, 200, 255)):
+        with dpg.theme() as slider_theme:
+            with dpg.theme_component(dpg.mvSliderInt):
+                dpg.add_theme_style(dpg.mvStyleVar_FrameRounding, 5.0, category=dpg.mvThemeCat_Core)
+                dpg.add_theme_style(dpg.mvStyleVar_FramePadding, 8.0, 3.0, category=dpg.mvThemeCat_Core)
+                dpg.add_theme_color(dpg.mvThemeCol_FrameBg, (41, 41, 41, 255), category=dpg.mvThemeCat_Core)
+                dpg.add_theme_color(dpg.mvThemeCol_FrameBgHovered, (58, 58, 58, 255), category=dpg.mvThemeCat_Core)
+                dpg.add_theme_color(dpg.mvThemeCol_FrameBgActive, (70, 70, 70, 255), category=dpg.mvThemeCat_Core)
+                dpg.add_theme_color(dpg.mvThemeCol_SliderGrab, slider_color, category=dpg.mvThemeCat_Core)
+                dpg.add_theme_color(dpg.mvThemeCol_SliderGrabActive, (100, 180, 220, 255), category=dpg.mvThemeCat_Core)
+                
+            return slider_theme
+
 class NodeMenuTheme:
     def __init__(self):
         super().__init__()
