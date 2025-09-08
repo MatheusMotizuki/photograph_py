@@ -24,12 +24,17 @@ class PhotoGraphEditor:
     tag = "photoGraphEditor"
     node_menu_ctx = "node_context_menu"
     node_info_ctx = "node_info_menu"
+    initial_option = "startup_modal"
+    session_id = None
+    socket_client = None
 
     def __init__(self, parent: str = "PhotoGraphMain"):
         """Initialize the PhotoGraph editor."""
         blank_image = Image.new("RGBA", (1, 1), (0, 0, 0, 255))
 
         self.parent = parent
+
+        self.initial_option = "startup_modal"
 
         self.submodules = [
             InputNode(),
@@ -49,8 +54,69 @@ class PhotoGraphEditor:
         self._create_node_editor()
 
     def _show_startup_message(self) -> None:
-        """Display a startup message."""
-        print(f"Welcome to {self.name}!")
+        """Display a centered startup modal with session controls."""
+        window_width, window_height = 360, 200
+        with dpg.window(
+            tag=self.initial_option,
+            modal=True,
+            no_move=True,
+            no_resize=True,
+            no_collapse=True,
+            show=True,
+            label="Welcome",
+        ):
+            dpg.bind_item_theme(self.initial_option, menu_theme.apply_theme())
+            dpg.add_spacer(height=6)
+            dpg.add_text(f"Welcome to {self.name}!", color=(240, 240, 240), wrap=320)
+            dpg.add_spacer(height=6)
+            dpg.add_separator()
+            dpg.add_spacer(height=8)
+
+            dpg.add_button(
+                label="Start Solo Session",
+                tag="btn_start_solo",
+                callback=self._start_solo_session,
+                width=window_width - 40,
+                height=30,
+            )
+            dpg.add_spacer(height=8)
+            dpg.add_text("Join or create a collaborative session", color=(180, 180, 180))
+            with dpg.group(horizontal=True):
+                self.session_id = dpg.add_input_text(label="", tag="collab_session_code", width=220, hint="Session Code")
+                dpg.add_spacer(width=8)
+                dpg.add_button(label="Join", tag="btn_join", callback=self._join_collaborative_session, width=80, height=30)
+            dpg.add_spacer(height=8)
+            dpg.add_button(label="Start New Session", tag="btn_create", callback=self._create_collaborative_session, width=window_width - 40, height=30)
+
+        # center approximate position
+        try:
+            viewport_width, viewport_height = dpg.get_viewport_width(), dpg.get_viewport_height()
+            x = int((viewport_width - window_width) / 2)
+            y = int((viewport_height - window_height) / 2)
+            dpg.set_item_pos(self.initial_option, (x, y))
+            dpg.set_item_width(self.initial_option, window_width)
+        except Exception:
+            pass
+
+        dpg.bind_item_theme("btn_start_solo", btn_theme.apply_theme(border_color=(66, 171, 73, 255), border_size=2.0))
+        dpg.bind_item_theme("btn_join", btn_theme.apply_theme(border_color=(15, 178, 235, 255), border_size=2.0))
+        dpg.bind_item_theme("btn_create", btn_theme.apply_theme(border_color=(227, 23, 62, 255), border_size=2.0))
+
+    def _join_collaborative_session(self, _sender=None, _app_data=None):
+        session_code = dpg.get_value(self.session_id)
+        # call socket client if present
+        if getattr(self, "socket_client", None):
+            self.socket_client.join_session(session_code)
+        dpg.delete_item(self.initial_option)
+
+    def _create_collaborative_session(self, _sender=None, _app_data=None):
+        if getattr(self, "socket_client", None):
+            self.socket_client.create_session()
+        dpg.delete_item(self.initial_option)
+
+    def _start_solo_session(self, sender=None, app_data=None):
+        dpg.delete_item(self.initial_option)
+        # nothing remote to do for solo
 
     def _create_node_editor(self) -> None:
         """Create the main node editor interface."""

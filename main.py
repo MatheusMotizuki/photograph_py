@@ -3,6 +3,7 @@ import sys
 import os
 
 from source.editor import PhotoGraphEditor
+from source.client.socket_client import SocketClient
 
 # start helper functions
 def setup_fonts():
@@ -38,7 +39,6 @@ def setup_menus():
             dpg.add_menu_item(tag="dev", label="DPG Docs", callback=lambda: dpg.show_documentation())
             dpg.add_menu_item(label="Debug Info", callback=lambda: dpg.show_debug())
 
-
 def show_about():
     """Show about dialog."""
     with dpg.window(label="About PhotoGraph", no_close=True, show=True, tag="about_window", 
@@ -64,9 +64,15 @@ def main():
 
         editor = PhotoGraphEditor()
 
+        # start socket client here (app lifecycle)
+        client = SocketClient("http://localhost:8000")
+        client.start()
+        # attach to editor so callbacks can use it
+        editor.socket_client = client
+
         with dpg.window(tag='photoGraphMain', menubar=True, no_title_bar=True, no_move=True, no_resize=True, no_close=True):
             setup_menus()
-            
+            # create UI and node editor inside window
             editor.initialize()
 
         dpg.setup_dearpygui()
@@ -75,10 +81,22 @@ def main():
         dpg.set_primary_window("photoGraphMain", True)
         
         dpg.start_dearpygui()
+        # poll socket client from main (DearPyGui) thread periodically
+        try:
+            # add_timer exists in many DPG versions; interval ~0.05s
+            dpg.add_timer(callback=lambda: client.poll(editor), delay=0.05)
+        except Exception:
+            # fallback: simple no-op; you can call client.poll(editor) from other frequent callbacks
+            print("Timer not available, call client.poll(editor) from a frequent UI callback.")
+        dpg.start_dearpygui()
 
     except Exception as e: # catch exceptions
         print(f"Error creating context or viewport: {e}")
     finally: # clean up
+        try:
+            client.stop()
+        except Exception:
+            pass
         dpg.destroy_context()
 
 if __name__ == "__main__":
