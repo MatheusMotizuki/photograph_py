@@ -393,20 +393,39 @@ class PhotoGraphEditor:
                 toast.show()
                 continue
 
+            # Determine canonical id to send to server (prefer alias/tag)
+            canonical_id = dpg.get_item_alias(node) or node
+            print(f"Canonical id for node {node} -> {canonical_id}")
+
             # Remove all links associated with the node
-            node_links = dpg.get_item_info(node)["children"][1]
+            try:
+                node_links = dpg.get_item_info(node)["children"][1]
+            except Exception:
+                node_links = []
             print(f"Node {node} links to be checked for removal: {node_links}")
 
-            dpg.delete_item(node)
-            print(f"Node {node} deleted from UI.")
+            # Delete node locally
+            try:
+                dpg.delete_item(node)
+                print(f"Node {node} deleted from UI.")
+            except Exception as e:
+                print(f"Failed to delete node {node} locally: {e}")
 
+            # Inform collaborators using canonical id
             if getattr(self, "socket_client", None) and hasattr(self, "current_session_id"):
-                self.socket_client.emit_op(self.current_session_id, {"type": "delete_node", "node_id": node})
+                self.socket_client.emit_op(self.current_session_id, {"type": "delete_node", "node_id": canonical_id})
 
-            # Remove links from update.node_links
+            # Remove links from update.node_links (clean up UI)
             removed_links = []
             for l in update.node_links[:]:
-                if l.source in node_links or l.target in node_links:
+                try:
+                    # compare by attribute parent if we have attribute ids in links
+                    src_parent = dpg.get_item_info(l.source)["parent"]
+                    tgt_parent = dpg.get_item_info(l.target)["parent"]
+                except Exception:
+                    src_parent = tgt_parent = None
+
+                if src_parent == node or tgt_parent == node:
                     try:
                         dpg.delete_item(l.id)
                     except Exception:

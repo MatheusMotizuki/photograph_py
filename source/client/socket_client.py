@@ -4,6 +4,7 @@ import queue
 import time
 import dearpygui.dearpygui as dpg
 from typing import Any, Optional
+from source.nodes.core import update, Link
 
 sio = socketio.Client(reconnection=True, logger=False, engineio_logger=False)
 _incoming: "queue.Queue[dict]" = queue.Queue()
@@ -150,19 +151,18 @@ class SocketClient:
                     created_link = None
                     if isinstance(src, dict) and isinstance(dst, dict):
                         try:
-                            # find node by tag (alias) or tag itself
                             def _resolve_endpoint(desc):
                                 node_tag = desc.get("node")
                                 idx = desc.get("index", 0)
-                                # node_tag may be alias string; check existence
+                                # try direct existence
                                 if not dpg.does_item_exist(node_tag):
-                                    # try find by alias: iterate all nodes and match alias
+                                    # try find by alias if needed
                                     for item in dpg.get_all_items():
                                         try:
                                             if dpg.get_item_alias(item) == node_tag:
                                                 node_tag = item
                                                 break
-                                        except SystemError:
+                                        except Exception:
                                             continue
                                 if not dpg.does_item_exist(node_tag):
                                     raise RuntimeError(f"Node {desc.get('node')} not found locally")
@@ -170,11 +170,11 @@ class SocketClient:
                                 if idx >= len(children):
                                     raise RuntimeError(f"Attribute index {idx} out of range for node {node_tag}")
                                 return children[idx]
-                            
+
                             src_attr = _resolve_endpoint(src)
                             dst_attr = _resolve_endpoint(dst)
                             created_link = dpg.add_node_link(src_attr, dst_attr, parent=editor.tag)
-                            editor.node_links.append(editor.Link(source=src_attr, target=dst_attr, id=int(created_link)))
+                            update.node_links.append(Link(source=src_attr, target=dst_attr, id=int(created_link)))
                             print(f"[SocketClient.poll] Created remote link: {src} -> {dst} (attrs {src_attr}->{dst_attr})")
                         except Exception as e:
                             print(f"[SocketClient.poll] Failed to create remote link from descriptors {src} -> {dst}: {e}")
@@ -192,10 +192,59 @@ class SocketClient:
                 elif typ == "delete_node":
                     node_id = op.get("node_id")
                     print(f"[SocketClient.poll] Deleting node id={node_id}")
+                    # Resolve canonical id to actual item
+                    target_item = node_id
+                    if not dpg.does_item_exist(target_item):
+                        # try find by alias
+                        found = None
+                        for item in dpg.get_all_items():
+                            try:
+                                if dpg.get_item_alias(item) == node_id:
+                                    found = item
+                                    break
+                            except Exception:
+                                continue
+                        if found:
+                            target_item = found
+
+                    # Delete the item if exists
                     try:
-                        dpg.delete_item(node_id)
+                        if dpg.does_item_exist(target_item):
+                            dpg.delete_item(target_item)
+                            print(f"[SocketClient.poll] Deleted remote node item: {target_item}")
+                        else:
+                            print(f"[SocketClient.poll] Remote node {node_id} not present locally")
                     except Exception as e:
                         print(f"[SocketClient.poll] Exception deleting node {node_id}: {e}")
+
+                    # Remove links referencing that node from local update.node_links
+                    removed = []
+                    for l in update.node_links[:]:
+                        try:
+                            src_parent = dpg.get_item_info(l.source)["parent"]
+                        except Exception:
+                            src_parent = None
+                        try:
+                            tgt_parent = dpg.get_item_info(l.target)["parent"]
+                        except Exception:
+                            tgt_parent = None
+
+                        # compare with resolved target_item or alias
+                        if src_parent == target_item or tgt_parent == target_item:
+                            try:
+                                dpg.delete_item(l.id)
+                            except Exception:
+                                pass
+                            update.node_links.remove(l)
+                            removed.append(l)
+                    if removed:
+                        print(f"[SocketClient.poll] Removed remote links due to node delete: {removed}")
+                    # update path/output after structural change
+                    try:
+                        update.update_path()
+                        update.update_output()
+                    except Exception:
+                        pass
                 else:
                     print("[SocketClient.poll] Received unhandled op:", op)
             elif msg.get("type") == "session_state":

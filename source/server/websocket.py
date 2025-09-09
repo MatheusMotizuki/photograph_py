@@ -124,8 +124,24 @@ async def op(sid, data):
         node_id = op.get("node_id")
         nodes = SESSIONS[session_id]["state"]["nodes"]
         links = SESSIONS[session_id]["state"]["links"]
+
+        # remove node entry (ids stored as canonical tags/strings)
         SESSIONS[session_id]["state"]["nodes"] = [n for n in nodes if n.get("id") != node_id]
-        SESSIONS[session_id]["state"]["links"] = [l for l in links if l.get("source") != node_id and l.get("target") != node_id]
+
+        def link_involves_node(link):
+            # link["source"] / link["target"] may be dict descriptors or raw ids
+            for end in ("source", "target"):
+                v = link.get(end)
+                if isinstance(v, dict):
+                    if v.get("node") == node_id:
+                        return True
+                else:
+                    # direct equality fallback
+                    if v == node_id:
+                        return True
+            return False
+
+        SESSIONS[session_id]["state"]["links"] = [l for l in links if not link_involves_node(l)]
         print(f"[op] Removed node from session {session_id}: {node_id}")
 
     # persist op for simple history (naive)
