@@ -19,6 +19,7 @@ class BrightnessNode(NodeCore):
         else:
             self._register_tag(node_tag)
         idx = str(node_tag).rsplit("_", 1)[-1]
+
         with dpg.node(
             parent=parent,
             tag=node_tag,
@@ -29,7 +30,7 @@ class BrightnessNode(NodeCore):
             with dpg.node_attribute(attribute_type=dpg.mvNode_Attr_Input):
                 dpg.add_text("input")
             with dpg.node_attribute(attribute_type=dpg.mvNode_Attr_Output):
-                dpg.add_slider_int(tag=f"brightness_val_{idx}", label="Value", min_value=-255, max_value=255, default_value=0, callback=self.update_output)
+                dpg.add_slider_int(tag=f"brightness_val_{idx}", label="Value", width=150, min_value=0, max_value=255, default_value=255, clamped=True, callback=self.update_output)
             dpg.bind_item_theme(node_tag, theme.apply_theme(node_outline=(227, 23, 62, 255)))
 
         self.settings[node_tag] = {f"brightness_val_{idx}": 0}

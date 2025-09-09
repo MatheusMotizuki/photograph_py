@@ -15,13 +15,18 @@ class DitherNode(NodeCore):
     def __init__(self):
         super().__init__()
 
-    def initialize(self, parent=None):
-        node_tag = "dither_" + str(self.counter)
+    def initialize(self, parent=None, node_tag: str | None = None, pos: list[int] | None = None):
+        if node_tag is None:
+            node_tag = "dither_" + str(self.counter)
+        else:
+            self._register_tag(node_tag)
+        idx = str(node_tag).rsplit("_", 1)[-1]
+
         with dpg.node(
             parent=parent,
             tag=node_tag,
             label="Dither",
-            pos=get_available_position(),
+            pos=(pos if pos is not None else get_available_position()),
             user_data=self,
         ):
             with dpg.node_attribute(attribute_type=dpg.mvNode_Attr_Input):
