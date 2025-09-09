@@ -13,32 +13,28 @@ class BrightnessNode(NodeCore):
     def __init__(self):
         super().__init__()
 
-    def initialize(self, parent=None):
+    def initialize(self, parent=None, node_tag: str | None = None, pos: list[int] | None = None):
+        if node_tag is None:
+            node_tag = "brightness_" + str(self.counter)
+        else:
+            self._register_tag(node_tag)
+        idx = str(node_tag).rsplit("_", 1)[-1]
         with dpg.node(
             parent=parent,
-            tag="brightness_" + str(self.counter),
+            tag=node_tag,
             label="Brightness",
-            pos=get_available_position(),
+            pos=(pos if pos is not None else get_available_position()),
             user_data=self,
         ):
             with dpg.node_attribute(attribute_type=dpg.mvNode_Attr_Input):
                 dpg.add_text("input")
             with dpg.node_attribute(attribute_type=dpg.mvNode_Attr_Output):
-                dpg.add_slider_int(
-                    tag="brightness_percentage_" + str(self.counter),
-                    label="Brightness",
-                    width=150,
-                    max_value=100,
-                    min_value=1,
-                    default_value=1,
-                    clamped=True,
-                    callback=self.update_output,
-                )
-            dpg.bind_item_theme("brightness_"+str(self.counter), theme.apply_theme(node_outline=(227, 23, 62, 255)))
+                dpg.add_slider_int(tag=f"brightness_val_{idx}", label="Value", min_value=-255, max_value=255, default_value=0, callback=self.update_output)
+            dpg.bind_item_theme(node_tag, theme.apply_theme(node_outline=(227, 23, 62, 255)))
 
-        tag = "brightness_" + str(self.counter)
-        self.settings[tag] = {"brightness_percentage_" + str(self.counter): 1}
-        self.end()
+        self.settings[node_tag] = {f"brightness_val_{idx}": 0}
+        self.last_node_id = node_tag
+        return self.end()
 
     def run(self, image: Image.Image, tag: str) -> Image.Image:
         tag = tag.split("_")[-1]

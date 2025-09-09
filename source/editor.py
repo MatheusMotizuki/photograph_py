@@ -55,6 +55,9 @@ class PhotoGraphEditor:
 
     def _show_startup_message(self) -> None:
         """Display a centered startup modal with session controls."""
+        if dpg.does_item_exist("join_session_dialog"):
+            dpg.delete_item("join_session_dialog")
+
         window_width, window_height = 360, 200
         with dpg.window(
             tag=self.initial_option,
@@ -104,15 +107,52 @@ class PhotoGraphEditor:
 
     def _join_collaborative_session(self, _sender=None, _app_data=None):
         session_code = dpg.get_value(self.session_id)
-        # call socket client if present
         if getattr(self, "socket_client", None):
             self.socket_client.join_session(session_code)
+            # Store the session ID for operations
+            self.current_session_id = session_code
+            # Also store in session_id for UI display
+            self.session_id = session_code
         dpg.delete_item(self.initial_option)
 
     def _create_collaborative_session(self, _sender=None, _app_data=None):
         if getattr(self, "socket_client", None):
             self.socket_client.create_session()
         dpg.delete_item(self.initial_option)
+    
+    def _show_session_created_dialog(self):
+        if not self.session_id:
+            # Wait a bit for session creation, then try again
+            return
+        
+        with dpg.window(
+            tag="session_created_dialog",
+            modal=True,
+            no_resize=True,
+            show=True,
+            label="Session Created",
+            width=350,
+            height=180
+        ):
+            dpg.add_text("Session created successfully!")
+            dpg.add_spacer(height=10)
+            dpg.add_text(f"Session ID: {self.session_id}")
+            dpg.add_spacer(height=5)
+            dpg.add_text("Share this ID with others to collaborate.", color=(180, 180, 180))
+            dpg.add_spacer(height=15)
+            dpg.add_button(
+                label="Copy ID",
+                callback=lambda: self._copy_to_clipboard(self.session_id),
+                width=100
+            )
+            dpg.add_button(
+                label="Continue",
+                callback=lambda: dpg.delete_item("session_created_dialog"),
+                width=100
+            )
+    def _copy_to_clipboard(self, text):
+        # You might need to implement clipboard functionality
+        print(f"Copy to clipboard: {text}")
 
     def _start_solo_session(self, sender=None, app_data=None):
         dpg.delete_item(self.initial_option)
@@ -155,6 +195,15 @@ class PhotoGraphEditor:
         update.update_path()
         update.update_output()
 
+        # Emit link creation to collaborative session
+        if getattr(self, "socket_client", None) and hasattr(self, "current_session_id"):
+            self.socket_client.emit_op(self.current_session_id, {
+                "type": "link_created",
+                "source": app_data[0], 
+                "target": app_data[1],
+                "link_id": int(link)
+            })
+
     def _on_link_deleted(self, _sender, app_data) -> None:
         dpg.delete_item(app_data)
         for link in update.node_links:
@@ -164,6 +213,13 @@ class PhotoGraphEditor:
 
         update.update_path()
         update.update_output()
+
+        # Emit link deletion to collaborative session
+        if getattr(self, "socket_client", None) and hasattr(self, "current_session_id"):
+            self.socket_client.emit_op(self.current_session_id, {
+                "type": "link_deleted",
+                "link_id": app_data
+            })
 
     def _handle_popup(self, _sender, app_data):
         if app_data == 1 and dpg.is_item_hovered(self.tag):
@@ -243,7 +299,8 @@ class PhotoGraphEditor:
                 dpg.add_button(
                     label=sub.name, 
                     tag=sub.tag+"_popup", 
-                    callback=lambda sender, app_data, user_data: user_data[0].initialize(parent=user_data[1]), 
+                    # callback=lambda sender, app_data, user_data: user_data[0].initialize(parent=user_data[1]), 
+                    callback=lambda sender, app_data, user_data: self._add_node_with_collab(user_data[0], user_data[1]), 
                     user_data=(sub, self.tag), 
                     indent=3, 
                     width=200
@@ -267,6 +324,21 @@ class PhotoGraphEditor:
         for i, sub in enumerate(self.submodules[1:-1]):
             color = colors[i % len(colors)]  # Cycle through colors if more buttons than colors
             dpg.bind_item_theme(sub.tag+"_popup", btn_theme.apply_theme(border_color=color, border_size=border_size))
+
+    def _add_node_with_collab(self, submodule, parent):
+        """Add node and emit to collaborative session"""
+        # Create the node locally
+        node_id = submodule.initialize(parent=parent)
+        
+        # Emit to collaborative session
+        if getattr(self, "socket_client", None) and hasattr(self, "current_session_id"):
+            node_pos = dpg.get_item_pos(node_id) if node_id else [0, 0]
+            self.socket_client.emit_op(self.current_session_id, {
+                "type": "add_node",
+                "node_type": submodule.name,
+                "node_id": node_id,
+                "position": node_pos
+            })
 
     def _node_info_menu(self, node_data=None):
         """Context menu for node information"""

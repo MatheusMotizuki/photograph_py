@@ -16,9 +16,10 @@ class DitherNode(NodeCore):
         super().__init__()
 
     def initialize(self, parent=None):
+        node_tag = "dither_" + str(self.counter)
         with dpg.node(
             parent=parent,
-            tag="dither_" + str(self.counter),
+            tag=node_tag,
             label="Dither",
             pos=get_available_position(),
             user_data=self,
@@ -27,11 +28,11 @@ class DitherNode(NodeCore):
                 dpg.add_text("input")
             with dpg.node_attribute(attribute_type=dpg.mvNode_Attr_Output):
                 dpg.add_text("output")
-            dpg.bind_item_theme("dither_"+str(self.counter), theme.apply_theme(node_outline=(255, 253, 116, 255)))
+            dpg.bind_item_theme(node_tag, theme.apply_theme(node_outline=(255, 253, 116, 255)))
         
-        tag = "dither_" + str(self.counter)
-        self.settings[tag] = {}
-        self.end()
+        self.settings[node_tag] = {}
+        self.last_node_id = node_tag
+        return self.end()
 
     def run(self, image: Image.Image, tag: str) -> Image.Image:
         # Ensure image is RGB

@@ -31,9 +31,25 @@ class NodeCore:
         self.settings = {}
         self.protected = False
         self.is_plugin = False
+        self.last_node_id = None
+
+    def _register_tag(self, node_tag: str) -> None:
+        """
+        When creating a node coming from a remote client we may receive a tag that may
+        look like this 'brightness_3'. Ensure our local counter does not produce
+        a conflicting tag by advancing it to at least the remote index.
+        """
+        try:
+            idx = int(str(node_tag).rsplit("_", 1)[-1])
+            if self.counter <= idx:
+                # keep end() semantics (end increments) so set counter to idx
+                self.counter = idx
+        except Exception:
+            pass
 
     def end(self):
         self.counter += 1
+        return self.last_node_id
 
 class Link(BaseModel):
     """Model for a link between nodes."""

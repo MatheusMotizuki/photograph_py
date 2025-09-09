@@ -4,6 +4,8 @@ import os
 
 from source.editor import PhotoGraphEditor
 from source.client.socket_client import SocketClient
+import threading
+import time
 
 # start helper functions
 def setup_fonts():
@@ -79,15 +81,34 @@ def main():
         dpg.show_viewport()
         dpg.maximize_viewport()
         dpg.set_primary_window("photoGraphMain", True)
-        
-        dpg.start_dearpygui()
-        # poll socket client from main (DearPyGui) thread periodically
+
+        # Method 1: Try timer first, fallback to a dedicated daemon thread that polls periodically
+        timer_added = False
         try:
-            # add_timer exists in many DPG versions; interval ~0.05s
-            dpg.add_timer(callback=lambda: client.poll(editor), delay=0.05)
-        except Exception:
-            # fallback: simple no-op; you can call client.poll(editor) from other frequent callbacks
-            print("Timer not available, call client.poll(editor) from a frequent UI callback.")
+            dpg.add_timer(callback=lambda: client.poll(editor), delay=0.05, repeat_count=-1)
+            timer_added = True
+            print("Timer added successfully for socket polling")
+        except Exception as e:
+            print(f"Timer not available: {e}. Falling back to a polling thread.")
+
+        if not timer_added:
+
+            # Event to allow a clean stop if desired; attached to client for optional external control
+            stop_event = threading.Event()
+            client._poll_stop_event = stop_event
+
+            def _poll_loop():
+                try:
+                    while not stop_event.is_set():
+                        client.poll(editor)
+                        time.sleep(0.05)
+                except Exception as e:
+                    print(f"Polling thread error: {e}")
+
+            poll_thread = threading.Thread(target=_poll_loop, name="SocketPollThread", daemon=True)
+            poll_thread.start()
+            print("Started polling thread for socket client")
+
         dpg.start_dearpygui()
 
     except Exception as e: # catch exceptions

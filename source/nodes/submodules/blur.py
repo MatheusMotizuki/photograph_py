@@ -19,12 +19,19 @@ class BlurNode(NodeCore):
     def __init__(self):
         super().__init__()
 
-    def initialize(self, parent=None):
+    def initialize(self, parent=None, node_tag: str | None = None, pos: list[int] | None = None):
+        # Use provided canonical node_tag/pos when syncing remote nodes
+        if node_tag is None:
+            node_tag = "blur_" + str(self.counter)
+        else:
+            self._register_tag(node_tag)
+        idx = str(node_tag).rsplit("_", 1)[-1]
+
         with dpg.node(
             parent=parent,
-            tag="blur_" + str(self.counter),
+            tag=node_tag,
             label="Blur",
-            pos=get_available_position(),
+            pos=(pos if pos is not None else get_available_position()),
             user_data=self,
         ):
             with dpg.node_attribute(attribute_type=dpg.mvNode_Attr_Input):
@@ -33,13 +40,13 @@ class BlurNode(NodeCore):
                 dpg.add_combo(
                     items=list(self.BLUR_TYPES.keys()),
                     default_value="BoxBlur",
-                    tag="blur_type_" + str(self.counter),
+                    tag=f"blur_type_{idx}",
                     label="Blur Type",
                     width=150,
                     callback=self.update_output,
                 )
                 dpg.add_slider_int(
-                    tag="blur_strength_" + str(self.counter),
+                    tag=f"blur_strength_{idx}",
                     label="Strength",
                     width=150,
                     min_value=0,
@@ -48,14 +55,14 @@ class BlurNode(NodeCore):
                     clamped=True,
                     callback=self.update_output,
                 )
-            dpg.bind_item_theme("blur_"+str(self.counter), theme.apply_theme(node_outline=(255, 150, 79, 255)))
+            dpg.bind_item_theme(node_tag, theme.apply_theme(node_outline=(255, 150, 79, 255)))
 
-        tag = "blur_" + str(self.counter)
-        self.settings[tag] = {
-            "blur_type_" + str(self.counter): "BoxBlur",
-            "blur_strength_" + str(self.counter): 0,
+        self.settings[node_tag] = {
+            f"blur_type_{idx}": "BoxBlur",
+            f"blur_strength_{idx}": 0,
         }
-        self.end()
+        self.last_node_id = node_tag
+        return self.end()
 
     def run(self, image: Image.Image, tag: str) -> Image.Image:
         tag_id = tag.split("_")[-1]
