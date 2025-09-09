@@ -3,6 +3,7 @@ import sys
 import os
 
 from source.editor import PhotoGraphEditor
+from source.client import socket_client as sc
 from source.client.socket_client import SocketClient
 import threading
 import time
@@ -67,6 +68,7 @@ def main():
         client.start()
         # attach to editor so callbacks can use it
         editor.socket_client = client
+        sc.CURRENT_CLIENT = client
 
         with dpg.window(tag='photoGraphMain', menubar=True, no_title_bar=True, no_move=True, no_resize=True, no_close=True):
             setup_menus()

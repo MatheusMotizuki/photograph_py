@@ -10,6 +10,7 @@ class PosterizationNode(NodeCore):
     name = "Posterization"
     tooltip = "Reduces smooth gradients into flat bands of color"
     tag = "posterization"
+    protected = False
 
     def __init__(self):
         super().__init__()

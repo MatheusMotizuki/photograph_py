@@ -5,9 +5,13 @@ import time
 import dearpygui.dearpygui as dpg
 from typing import Any, Optional
 from source.nodes.core import update, Link
+from PIL import Image
 
 sio = socketio.Client(reconnection=True, logger=False, engineio_logger=False)
 _incoming: "queue.Queue[dict]" = queue.Queue()
+
+# suppression set for programmatic control updates to avoid re-emitting them
+_suppress_emit: "set[str]" = set()
 
 # Keep a reference to the most recently started client so the sio handlers
 # can mark it connected/disconnected and flush pending emits.
@@ -20,6 +24,8 @@ class SocketClient:
         self._connected_evt = threading.Event()
         self._pending = []  # buffer emits until connected
         self._stop = threading.Event()
+        # track currently active session id for convenience (set on create/join/session_created)
+        self.current_session: Optional[str] = None
 
     def start(self):
         """Start the socket client in a background thread."""
@@ -61,6 +67,9 @@ class SocketClient:
             print("[SocketClient] Exception on disconnect:", e)
 
     def _emit_or_buffer(self, event: str, payload: dict):
+        # debug
+        sess = payload.get("session")
+        print(f"[SocketClient._emit_or_buffer] event={event} session={sess} connected={self._connected_evt.is_set()} payload_keys={list(payload.keys())}")
         if self._connected_evt.is_set():
             try:
                 print(f"[SocketClient] Emitting event '{event}' with payload: {payload}")
@@ -95,11 +104,22 @@ class SocketClient:
 
     def join_session(self, session_id: str):
         print(f"[SocketClient] join_session() called with session_id={session_id}")
+        # remember session id so other modules can emit without having direct editor reference
+        self.current_session = session_id
         self._emit_or_buffer("join_session", {"session": session_id})
 
-    def emit_op(self, session_id: str, op: dict):
-        print(f"[SocketClient] emit_op() called for session={session_id} op={op}")
-        self._emit_or_buffer("op", {"session": session_id, "op": op})
+    def emit_op(self, session_id: str | None, op: dict):
+        # prefer explicit param, fallback to tracked current_session
+        effective_session = session_id or getattr(self, "current_session", None)
+        if not effective_session:
+            print(f"[SocketClient] emit_op called but no session id (param={session_id}) and no current_session set. op={op}")
+            # do not emit invalid op; buffer for later only if we have a current_session
+            if getattr(self, "current_session", None):
+                print(f"[SocketClient] buffering op until connected/session available: {op}")
+                self._emit_or_buffer("op", {"session": self.current_session, "op": op})
+            return
+        print(f"[SocketClient] emit_op() called for session={effective_session} op={op}")
+        self._emit_or_buffer("op", {"session": effective_session, "op": op})
 
     def poll(self, editor: Any):
         """
@@ -145,6 +165,47 @@ class SocketClient:
                                 created = sub.initialize(parent=editor.tag)
                                 print(f"[SocketClient.poll] Fallback created node (from op): {created}")
                             break
+                elif typ == "set_control":
+                    control = op.get("control")
+                    value = op.get("value")
+                    if control is None:
+                        print(f"[SocketClient.poll] set_control missing control key: {op}")
+                    else:
+                        try:
+                          # Mark control to suppress emission when the local callback fires
+                            _suppress_emit.add(control)
+                            dpg.set_value(control, value)
+                            print(f"[SocketClient.poll] Applied remote control {control}={value}")
+                            # we do NOT call update.update_output here; the dpg callback will run and update state
+                        except Exception as e:
+                            print(f"[SocketClient.poll] Failed to apply remote control {control}: {e}")  
+                elif typ == "set_input_image":
+                    node_id = op.get("node_id", "Input")
+                    b64 = op.get("image_b64")
+                    fmt = op.get("format", "PNG")
+                    if b64:
+                        try:
+                            import io, base64
+                            data = base64.b64decode(b64)
+                            img = Image.open(io.BytesIO(data)).convert("RGBA")
+                            # find Input node submodule instance and set image
+                            for sub in editor.submodules:
+                                if getattr(sub, "name", "") == "Input":
+                                    sub._current_image = img
+                                    try:
+                                        sub._display_image()
+                                    except Exception:
+                                        pass
+                                    try:
+                                        update.update_output()
+                                    except Exception:
+                                        pass
+                                    print(f"[SocketClient.poll] Applied replicated input image for node {node_id}")
+                                    break
+                        except Exception as e:
+                            print(f"[SocketClient.poll] Failed to apply replicated image: {e}")
+                    else:
+                        print("[SocketClient.poll] set_input_image missing payload")
                 elif typ == "link_created":
                     src = op.get("source")
                     dst = op.get("target")
@@ -278,6 +339,34 @@ class SocketClient:
                                 print(f"[SocketClient.poll] Recreated link from session state: {source} -> {target}")
                             except Exception as e:
                                 print(f"[SocketClient.poll] Failed to recreate link from session state: {e}")
+                # Apply persisted images from session state (e.g. Input node)
+                if "images" in state:
+                    try:
+                        import io, base64
+                        images = state.get("images", {})
+                        for node_id, img_meta in images.items():
+                            b64 = img_meta.get("b64")
+                            fmt = img_meta.get("format", "PNG")
+                            if not b64:
+                                continue
+                            data = base64.b64decode(b64)
+                            img = Image.open(io.BytesIO(data)).convert("RGBA")
+                            # find Input node submodule instance and set image
+                            for sub in editor.submodules:
+                                if getattr(sub, "name", "") == "Input":
+                                    sub._current_image = img
+                                    try:
+                                        sub._display_image()
+                                    except Exception:
+                                        pass
+                                    try:
+                                        update.update_output()
+                                    except Exception:
+                                        pass
+                                    print(f"[SocketClient.poll] Applied session_state image for {node_id}")
+                                    break
+                    except Exception as e:
+                        print(f"[SocketClient.poll] Failed to apply session_state images: {e}")
             else:
                 print("[SocketClient.poll] Unknown message:", msg)
         if processed:
@@ -318,11 +407,25 @@ def on_session_created(data):
     session_id = data.get("session")
     # Store session ID for the editor
     _incoming.put({"type": "session_created", "session_id": session_id, "state": data.get("state")})
+    # keep CURRENT_CLIENT in sync
+    try:
+        if CURRENT_CLIENT is not None:
+            CURRENT_CLIENT.current_session = session_id
+            print(f"[sio] CURRENT_CLIENT.current_session set to {session_id}")
+    except Exception:
+        pass
 
 @sio.on("session_state")
 def on_session_state(data):
     print("[sio] on_session_state received:", data)
     _incoming.put({"type": "session_state", "state": data.get("state")})
+    # update local current_session if included (some code paths may deliver state without session_created)
+    try:
+        session = data.get("session")
+        if session and CURRENT_CLIENT is not None:
+            CURRENT_CLIENT.current_session = session
+    except Exception:
+        pass
 
 @sio.on("op")
 def on_op(data):

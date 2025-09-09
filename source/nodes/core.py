@@ -32,6 +32,7 @@ class NodeCore:
         self.protected = False
         self.is_plugin = False
         self.last_node_id = None
+        self.protected = False
 
     def _register_tag(self, node_tag: str) -> None:
         """
@@ -105,13 +106,41 @@ class Update:
 
             alias = dpg.get_item_alias(node)
             module.settings[alias][sender] = app_data
+            # Do not emit remote op if this update was flagged as a suppressed remote apply.
+            try:
+                # avoid circular import at module load
+                from source.client.socket_client import _suppress_emit, CURRENT_CLIENT
+                # if sender was flagged, consume flag and skip emitting
+                if sender in _suppress_emit:
+                    _suppress_emit.discard(sender)
+                    # still continue local processing (no broadcast)
+                    pass
+                else:
+                    # Emit control change to collaborative session if available
+                    try:
+                        if CURRENT_CLIENT is not None and getattr(CURRENT_CLIENT, "current_session", None) and history:
+                            op = {
+                                "type": "set_control",
+                                "node_id": dpg.get_item_alias(node) or node,
+                                "control": sender,
+                                "value": app_data,
+                            }
+                            CURRENT_CLIENT.emit_op(CURRENT_CLIENT.current_session, op)
+                    except Exception:
+                        # silent fail to not break UI
+                        pass
+            except Exception:
+                # If socket client module not available, ignore
+                pass
         try:
             output = dpg.get_item_user_data(self.path[-1])
         except IndexError:
-            dpg.delete_item("Output_attribute", children_only=True)
+            with suppress(Exception):
+                dpg.delete_item("Output_image_attribute", children_only=True)
+            # dpg.delete_item("Output_image_attribute", children_only=True)
             return
         if output.name != "Output":
-            dpg.delete_item("Output_attribute", children_only=True)
+            dpg.delete_item("Output_image_attribute", children_only=True)
             return
 
         input_node = dpg.get_item_user_data("Input")
@@ -144,12 +173,8 @@ class Update:
                 np.frombuffer(image.tobytes(), dtype=np.uint8) / 255.0,
                 tag=output.image,
             )
-        dpg.delete_item("Output_attribute", children_only=True)
-        dpg.add_image(output.image, parent="Output_attribute")
-        if output.pillow_image.size != img_size:
-            dpg.add_spacer(height=5, parent="Output_attribute")
-            dpg.add_text(
-                f"Image size: {output.pillow_image.width}x{output.pillow_image.height}", parent="Output_attribute"
-            )
+        # Update only the image attribute children so controls remain intact
+        dpg.delete_item("Output_image_attribute", children_only=True)
+        dpg.add_image(output.image, parent="Output_image_attribute")
 
 update = Update()

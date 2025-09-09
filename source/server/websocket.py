@@ -105,6 +105,26 @@ async def op(sid, data):
         }
         SESSIONS[session_id]["state"]["nodes"].append(node_data)
         print(f"[op] Added node to session {session_id}: {node_data}")
+    elif op.get("type") == "set_input_image":
+        # store image bytes (base64) in session state under a per-node images map
+        image_map = SESSIONS[session_id]["state"].setdefault("images", {})
+        node_id = op.get("node_id") or "Input"
+        image_map[node_id] = {
+            "b64": op.get("image_b64"),
+            "format": op.get("format", "PNG"),
+        }
+        print(f"[op] Stored image for session {session_id} node {node_id} (len={len(op.get('image_b64') or '')})")
+
+    elif op.get("type") == "set_control":
+        # persist last-known control value in session state
+        node_id = op.get("node_id")
+        ctrl = op.get("control")
+        val = op.get("value")
+        ctl_map = SESSIONS[session_id]["state"].setdefault("controls", {})
+        node_map = ctl_map.setdefault(node_id, {})
+        node_map[str(ctrl)] = val
+        print(f"[op] Stored control for session {session_id} node {node_id} control={ctrl} value={val}")
+
     elif op.get("type") == "link_created":
         # store descriptors (node_tag/index) so peers can resolve locally
         link_data = {

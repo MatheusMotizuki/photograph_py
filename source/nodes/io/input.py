@@ -4,8 +4,11 @@ from typing import Optional
 from pathlib import Path
 import logging
 import numpy as np
+import io
+import base64
 
 from source.nodes.core import NodeCore, update
+from source.client.socket_client import CURRENT_CLIENT
 
 logger = logging.getLogger(__name__)
 
@@ -25,7 +28,7 @@ class InputNode(NodeCore):
     }
 
     def __init__(self):
-        self._protected = True
+        self.protected = True
         self._current_image: Optional[Image.Image] = None
         self._texture_tag = f"input_texture"
         self._image_tag = f"input_image"
@@ -72,6 +75,54 @@ class InputNode(NodeCore):
         except Exception as e:
             logger.error(f"Failed to open image {file_path}: {e}")
         # update.update_output()
+        # Replicate image to collaborators if connected
+        try:
+            # prepare base64 of the original file bytes (preserve format)
+            buf = io.BytesIO()
+            fmt = self._current_image.format or "PNG"
+            self._current_image.save(buf, format=fmt)
+            bts = buf.getvalue()
+            b64 = base64.b64encode(bts).decode("ascii")
+
+            # DEBUG: print client/session info before emitting
+            try:
+                client_repr = repr(CURRENT_CLIENT)
+                client_session = getattr(CURRENT_CLIENT, "current_session", None)
+            except Exception:
+                client_repr = None
+                client_session = None
+            logger.info(f"Attempting to replicate image. CURRENT_CLIENT={client_repr} session={client_session}")
+
+            # Fallback: if CURRENT_CLIENT is None, try to find a socket client attached to a running editor
+            if CURRENT_CLIENT is None:
+                try:
+                    import source.client.socket_client as scmod
+                    if getattr(scmod, "CURRENT_CLIENT", None):
+                        client = scmod.CURRENT_CLIENT
+                        client_session = getattr(client, "current_session", None)
+                        client_repr = repr(client)
+                        logger.info(f"Found fallback socket client via module: {client_repr} session={client_session}")
+                    else:
+                        client = None
+                except Exception:
+                    client = None
+            else:
+                client = CURRENT_CLIENT
+
+            # send via available client if we have a session id
+            if client is not None and getattr(client, "current_session", None):
+                payload = {
+                    "type": "set_input_image",
+                    "node_id": "Input",
+                    "image_b64": b64,
+                    "format": fmt,
+                }
+                client.emit_op(client.current_session, payload)
+                logger.info("Replicated input image to session %s", client.current_session)
+            else:
+                logger.warning("Not replicating input image: no socket client or session id available")
+        except Exception as e:
+            logger.exception("Failed to replicate input image: %s", e)
 
     def _display_image(self):
         """Display the loaded image in the node."""

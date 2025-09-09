@@ -10,6 +10,7 @@ class BlurNode(NodeCore):
     name = "Blur"
     tooltip = "Apply blur filter"
     tag = "blur"
+    protected = False
 
     BLUR_TYPES = {
         "BoxBlur": ImageFilter.BoxBlur,

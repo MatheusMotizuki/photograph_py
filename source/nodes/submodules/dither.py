@@ -11,6 +11,7 @@ class DitherNode(NodeCore):
     name = "Dither"
     tooltip = "Adds dither effect to an image"
     tag = "dither"
+    protected = False
 
     def __init__(self):
         super().__init__()

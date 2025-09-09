@@ -8,6 +8,7 @@ class MonochromeNode(NodeCore):
     name = "Monochrome"
     tooltip = "Convert image to monochrome (grayscale)"
     tag = "monochrome"
+    protected = False
 
     def __init__(self):
         super().__init__()

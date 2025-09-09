@@ -10,6 +10,7 @@ class PixelateNode(NodeCore):
     name = "Pixelate"
     tooltip = "Convert image to a pixelation version of it\n"
     tag = "pixelation"
+    protected = False
 
     def __init__(self):
         super().__init__()

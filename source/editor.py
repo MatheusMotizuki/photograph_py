@@ -365,7 +365,7 @@ class PhotoGraphEditor:
             show=False,
             label="Node information",
         ):
-            dpg.add_text(f"Node is {node_data.NAME if node_data else 'Unknown'}", color=(248, 248, 248))
+            dpg.add_text(f"Node is {node_data.name if node_data else 'Unknown'}", color=(248, 248, 248))
             dpg.add_text(f"{node_data.DESCRIPTION if node_data else 'No description available.'}", color=(200, 200, 200))
             if not node_data.protected:
                 dpg.add_spacer(height=5)

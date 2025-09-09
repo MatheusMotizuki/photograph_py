@@ -10,6 +10,7 @@ class RGBNode(NodeCore):
     name = "RGB"
     tooltip = "Adjust RGB channels (decrease each color)"
     tag = "rgb"
+    protected = False
 
     def __init__(self):
         super().__init__()
