@@ -182,27 +182,42 @@ class PhotoGraphEditor:
 
     def _on_link_created(self, sender, app_data):
         """Handle node link creation."""
-        for link in update.node_links:
+        # Clean up any conflicting tracked links that share the same source attribute
+        for link in update.node_links[:]:
             if link.source == app_data[0]:
                 try:
                     dpg.delete_item(link.id)
                 except SystemError:
-                    continue
+                    pass
                 update.node_links.remove(link)
 
+        # Create the link locally
         link = dpg.add_node_link(app_data[0], app_data[1], parent=sender)
         update.node_links.append(Link(source=app_data[0], target=app_data[1], id=int(link)))
         update.update_path()
         update.update_output()
 
-        # Emit link creation to collaborative session
+        # Emit link creation using stable descriptors (node_tag + attribute index)
         if getattr(self, "socket_client", None) and hasattr(self, "current_session_id"):
-            self.socket_client.emit_op(self.current_session_id, {
+            def _endpoint_descriptor(attr_id):
+                try:
+                    node = dpg.get_item_info(attr_id)["parent"]
+                    node_tag = dpg.get_item_alias(node) or node
+                    children = dpg.get_item_info(node)["children"][1]
+                    index = children.index(attr_id)
+                    return {"node": node_tag, "index": index}
+                except Exception:
+                    return None
+
+            src_desc = _endpoint_descriptor(app_data[0])
+            dst_desc = _endpoint_descriptor(app_data[1])
+            payload = {
                 "type": "link_created",
-                "source": app_data[0], 
-                "target": app_data[1],
-                "link_id": int(link)
-            })
+                "source": src_desc,
+                "target": dst_desc,
+                "link_id": int(link),
+            }
+            self.socket_client.emit_op(self.current_session_id, payload)
 
     def _on_link_deleted(self, _sender, app_data) -> None:
         dpg.delete_item(app_data)
@@ -385,10 +400,17 @@ class PhotoGraphEditor:
             dpg.delete_item(node)
             print(f"Node {node} deleted from UI.")
 
+            if getattr(self, "socket_client", None) and hasattr(self, "current_session_id"):
+                self.socket_client.emit_op(self.current_session_id, {"type": "delete_node", "node_id": node})
+
             # Remove links from update.node_links
             removed_links = []
             for l in update.node_links[:]:
                 if l.source in node_links or l.target in node_links:
+                    try:
+                        dpg.delete_item(l.id)
+                    except Exception:
+                        pass
                     update.node_links.remove(l)
                     removed_links.append(l)
             print(f"Removed links for node {node}: {removed_links}")

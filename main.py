@@ -49,11 +49,7 @@ def show_about():
         dpg.add_separator()
         dpg.add_text("TCC - UNIFESO 2025 - Matheus Motizuki")
         dpg.add_button(label="Close", tag="close_button", callback=lambda: dpg.delete_item("about_window"), pos=[170, 100])
-
-    # Binding themes
-    # dpg.bind_item_theme("about_window", ModalTheme.apply_theme())
-    # dpg.bind_item_theme("close_button", ButtonTheme.apply_theme(border_col=(255, 60, 120, 255)))
-#End helper functions
+# end helper functions
 
 # Main portion
 def main():
@@ -67,7 +63,7 @@ def main():
         editor = PhotoGraphEditor()
 
         # start socket client here (app lifecycle)
-        client = SocketClient("http://localhost:8000")
+        client = SocketClient("http://192.168.1.90:8000")
         client.start()
         # attach to editor so callbacks can use it
         editor.socket_client = client

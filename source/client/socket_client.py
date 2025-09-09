@@ -13,7 +13,7 @@ _incoming: "queue.Queue[dict]" = queue.Queue()
 CURRENT_CLIENT: Optional["SocketClient"] = None
 
 class SocketClient:
-    def __init__(self, server_url: str = "http://localhost:8000"):
+    def __init__(self, server_url: str = "http://192.168.1.90:8000"):
         self.server_url = server_url
         self._thread = None
         self._connected_evt = threading.Event()
@@ -145,14 +145,42 @@ class SocketClient:
                                 print(f"[SocketClient.poll] Fallback created node (from op): {created}")
                             break
                 elif typ == "link_created":
-                    source = op.get("source")
-                    target = op.get("target") 
-                    if source and target:
+                    src = op.get("source")
+                    dst = op.get("target")
+                    created_link = None
+                    if isinstance(src, dict) and isinstance(dst, dict):
                         try:
-                            dpg.add_node_link(source, target, parent=editor.tag)
-                            print(f"[SocketClient.poll] Created remote link: {source} -> {target}")
+                            # find node by tag (alias) or tag itself
+                            def _resolve_endpoint(desc):
+                                node_tag = desc.get("node")
+                                idx = desc.get("index", 0)
+                                # node_tag may be alias string; check existence
+                                if not dpg.does_item_exist(node_tag):
+                                    # try find by alias: iterate all nodes and match alias
+                                    for item in dpg.get_all_items():
+                                        try:
+                                            if dpg.get_item_alias(item) == node_tag:
+                                                node_tag = item
+                                                break
+                                        except SystemError:
+                                            continue
+                                if not dpg.does_item_exist(node_tag):
+                                    raise RuntimeError(f"Node {desc.get('node')} not found locally")
+                                children = dpg.get_item_info(node_tag)["children"][1]
+                                if idx >= len(children):
+                                    raise RuntimeError(f"Attribute index {idx} out of range for node {node_tag}")
+                                return children[idx]
+                            
+                            src_attr = _resolve_endpoint(src)
+                            dst_attr = _resolve_endpoint(dst)
+                            created_link = dpg.add_node_link(src_attr, dst_attr, parent=editor.tag)
+                            editor.node_links.append(editor.Link(source=src_attr, target=dst_attr, id=int(created_link)))
+                            print(f"[SocketClient.poll] Created remote link: {src} -> {dst} (attrs {src_attr}->{dst_attr})")
                         except Exception as e:
-                            print(f"[SocketClient.poll] Failed to create remote link: {e}")
+                            print(f"[SocketClient.poll] Failed to create remote link from descriptors {src} -> {dst}: {e}")
+                    else:
+                        print(f"[SocketClient.poll] Unexpected link payload shape: src={src} dst={dst}")
+
                 elif typ == "link_deleted":
                     link_id = op.get("link_id")
                     if link_id:

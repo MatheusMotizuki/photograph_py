@@ -106,10 +106,11 @@ async def op(sid, data):
         SESSIONS[session_id]["state"]["nodes"].append(node_data)
         print(f"[op] Added node to session {session_id}: {node_data}")
     elif op.get("type") == "link_created":
+        # store descriptors (node_tag/index) so peers can resolve locally
         link_data = {
             "source": op.get("source"),
             "target": op.get("target"),
-            "id": op.get("link_id")
+            "id": op.get("link_id"),
         }
         SESSIONS[session_id]["state"]["links"].append(link_data)
         print(f"[op] Added link to session {session_id}: {link_data}")
