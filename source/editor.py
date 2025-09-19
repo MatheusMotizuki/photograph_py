@@ -4,7 +4,11 @@ import dearpygui.dearpygui as dpg
 from source.nodes.io.input import InputNode
 from source.nodes.io.output import OutputNode
 
-from source.nodes.submodules import (
+from source.nodes.audio import (
+    VolumeAudioNode,
+)
+
+from source.nodes.image import (
     BrightnessNode,
     RGBNode,
     MonochromeNode,
@@ -45,6 +49,7 @@ class PhotoGraphEditor:
             PixelateNode(),
             DitherNode(),
             PosterizationNode(),
+            VolumeAudioNode(),
             OutputNode(blank_image)
         ]
 
@@ -151,12 +156,10 @@ class PhotoGraphEditor:
                 width=100
             )
     def _copy_to_clipboard(self, text):
-        # You might need to implement clipboard functionality
         print(f"Copy to clipboard: {text}")
 
     def _start_solo_session(self, sender=None, app_data=None):
         dpg.delete_item(self.initial_option)
-        # nothing remote to do for solo
 
     def _create_node_editor(self) -> None:
         """Create the main node editor interface."""

@@ -16,15 +16,15 @@ class InputNode(NodeCore):
     """Input node for loading and displaying images."""
 
     name = "Input"
-    tooltip = "Where it all starts.\nNode to input an image file"
+    tooltip = "Where it all starts.\nInput node"
 
     # image processing constants
     MAX_DISPLAY_SIZE = (200, 200)
     SUPPORTED_FORMATS = {
+        ".*": (255, 255, 255, 255),
         ".png": (255, 0, 0, 255),
         ".jpg": (0, 255, 0, 255),
         ".jpeg": (0, 0, 255, 255),
-        ".bmp": (255, 255, 0, 255),
     }
 
     def __init__(self):
@@ -41,10 +41,10 @@ class InputNode(NodeCore):
 
         with dpg.node(tag="Input", label="Input", pos=[100, 100], user_data=self):
             with dpg.node_attribute(attribute_type=dpg.mvNode_Attr_Output):
-                dpg.add_text("Input Image")
+                dpg.add_text("Input")
                 with dpg.group(tag=self._container_tag):
                     pass  # Image is added dynamically
-                dpg.add_button(label="Upload Image", callback=self._show_file_dialog)
+                dpg.add_button(label="Upload file", callback=self._show_file_dialog)
     
     def _show_file_dialog(self):
         """Show file dialog for image selection."""

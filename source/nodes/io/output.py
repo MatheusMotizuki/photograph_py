@@ -12,7 +12,7 @@ class OutputNode:
     """Output node for displaying images."""
 
     name = "Output"
-    tooltip = "Where it all ends.\nNode to output an image file"
+    tooltip = "Where it all ends.\nOutput node"
     protected = True
 
     MAX_DISPLAY_SIZE = (200, 200)
@@ -57,7 +57,7 @@ class OutputNode:
 
             # controls attribute (persistent across updates) - buttons, dialogs, etc.
             with dpg.node_attribute(attribute_type=dpg.mvNode_Attr_Static, tag="Output_controls"):
-                dpg.add_button(label="Download Image", callback=self._show_save_dialog)
+                dpg.add_button(label="Download", callback=self._show_save_dialog)
                 dpg.add_button(label="Quick Save Output", callback=self.quick_save)
                 # Add file dialog (hidden by default) under controls so it isn't removed by updates
                 if not dpg.does_item_exist("output_save_dialog"):

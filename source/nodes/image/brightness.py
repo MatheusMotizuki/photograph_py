@@ -4,7 +4,6 @@ from PIL import Image, ImageEnhance
 from source.nodes.core import NodeCore, get_available_position
 from source.utils.theme import theme
 
-
 class BrightnessNode(NodeCore):
     name = "Brightness"
     tooltip = "Adjust brightness"

@@ -64,7 +64,7 @@ def main():
         editor = PhotoGraphEditor()
 
         # start socket client here (app lifecycle)
-        client = SocketClient("http://192.168.1.90:8000")
+        client = SocketClient("http://192.168.1.90:8000") # hardcoded IP because why not?
         client.start()
         # attach to editor so callbacks can use it
         editor.socket_client = client
@@ -72,40 +72,27 @@ def main():
 
         with dpg.window(tag='photoGraphMain', menubar=True, no_title_bar=True, no_move=True, no_resize=True, no_close=True):
             setup_menus()
-            # create UI and node editor inside window
-            editor.initialize()
+            editor.initialize() # create UI and node editor inside window
 
         dpg.setup_dearpygui()
         dpg.show_viewport()
         dpg.maximize_viewport()
         dpg.set_primary_window("photoGraphMain", True)
 
-        # Method 1: Try timer first, fallback to a dedicated daemon thread that polls periodically
-        timer_added = False
-        try:
-            dpg.add_timer(callback=lambda: client.poll(editor), delay=0.05, repeat_count=-1)
-            timer_added = True
-            print("Timer added successfully for socket polling")
-        except Exception as e:
-            print(f"Timer not available: {e}. Falling back to a polling thread.")
+        stop_event = threading.Event()
+        client._poll_stop_event = stop_event
 
-        if not timer_added:
+        def _poll_loop():
+            try:
+                while not stop_event.is_set():
+                    client.poll(editor)
+                    time.sleep(0.05)
+            except Exception as e:
+                print(f"Polling thread error: {e}")
 
-            # Event to allow a clean stop if desired; attached to client for optional external control
-            stop_event = threading.Event()
-            client._poll_stop_event = stop_event
-
-            def _poll_loop():
-                try:
-                    while not stop_event.is_set():
-                        client.poll(editor)
-                        time.sleep(0.05)
-                except Exception as e:
-                    print(f"Polling thread error: {e}")
-
-            poll_thread = threading.Thread(target=_poll_loop, name="SocketPollThread", daemon=True)
-            poll_thread.start()
-            print("Started polling thread for socket client")
+        poll_thread = threading.Thread(target=_poll_loop, name="SocketPollThread", daemon=True)
+        poll_thread.start()
+        print("Started polling thread for socket client")
 
         dpg.start_dearpygui()
 
