@@ -5,6 +5,7 @@ from .rgb import RGBNode
 from .pixelate import PixelateNode
 from .dither import DitherNode
 from .posterization import PosterizationNode
+from .preview import PreviewNode
 
 __all__ = [
     "BlurNode",
@@ -14,4 +15,5 @@ __all__ = [
     "PixelateNode",
     "DitherNode",
     "PosterizationNode",
+    "PreviewNode",
 ]

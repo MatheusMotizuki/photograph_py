@@ -12,6 +12,7 @@ from source.nodes.submodules import (
     PixelateNode,
     DitherNode,
     PosterizationNode,
+    PreviewNode,
 )
 from source.nodes.core import Link, update
 from source.utils.theme import btn_theme, menu_theme
@@ -40,6 +41,7 @@ class PhotoGraphEditor:
             PixelateNode(),
             DitherNode(),
             PosterizationNode(),
+            PreviewNode(),
             OutputNode(blank_image)
         ]
 
@@ -239,6 +241,10 @@ class PhotoGraphEditor:
                 toast = Toast("Cannot delete protected nodes", 3000)
                 toast.show()
                 continue
+
+            # Clean up node-specific resources (e.g., for PreviewNode)
+            if hasattr(data, 'cleanup'):
+                data.cleanup()
 
             # Remove all links associated with the node
             node_links = dpg.get_item_info(node)["children"][1]
